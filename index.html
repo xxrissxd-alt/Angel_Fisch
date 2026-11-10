@@ -1,0 +1,70 @@
+<!doctype html><html lang="es"><head><meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<title>Fisch Guía</title><style>
+:root{--bg:#0f2a36;--p:#16394a;--t:#e9f2ef;--m:#93b1b8;--a:#f2a65a;--g:#6fd3b0;--r:#ef7b6b}
+*{box-sizing:border-box}body{margin:0;background:var(--bg);color:var(--t);font:16px/1.45 system-ui,sans-serif;padding:env(safe-area-inset-top) 0 env(safe-area-inset-bottom)}
+header{padding:14px 16px 4px}h1{margin:0;font:700 22px Georgia,serif}h2{font:600 17px Georgia,serif;margin:14px 0 6px}
+nav{display:flex;gap:4px;padding:8px 12px;position:sticky;top:0;background:var(--bg)}
+nav button{flex:1;padding:10px 4px;border:0;border-radius:10px;background:var(--p);color:var(--m);font:inherit;font-size:14px}
+nav button.on{background:var(--a);color:#1b1208;font-weight:700}
+main{padding:4px 14px 40px}.c{background:var(--p);border-radius:12px;padding:12px;margin:8px 0}
+.row{display:flex;gap:8px}.row>*{flex:1}label{font-size:13px;color:var(--m)}
+input{width:100%;padding:10px;border-radius:8px;border:1px solid #2c5568;background:var(--bg);color:var(--t);font:inherit}
+.b{border:0;border-radius:8px;padding:9px 12px;background:var(--a);color:#1b1208;font:600 14px inherit;font-family:inherit}
+.b.s{background:#2c5568;color:var(--t)}.m{color:var(--m);font-size:14px}.g{color:var(--g)}.r{color:var(--r)}
+.hl{border-left:4px solid var(--a)}small{color:var(--m)}button:focus-visible,input:focus-visible{outline:2px solid var(--g)}
+</style></head><body>
+<header><h1>Fisch Guía</h1><span class="m">Funciona sin internet</span></header>
+<nav id="nav"></nav><main id="v"></main>
+<script src="data.js"></script><script>
+const $=s=>document.querySelector(s),ld=k=>{try{return JSON.parse(localStorage.getItem(k))}catch(e){return null}},
+sv=(k,v)=>{try{localStorage.setItem(k,JSON.stringify(v))}catch(e){}},f=n=>n.toLocaleString('es');
+const cv=a=>({id:a[0],n:a[1],cost:a[2],loc:a[3],lure:a[4],luck:a[5],ctrl:a[6],res:a[7],ab:a[8],lvl:a[9],req:a[10]});
+const norm=d=>({...d,rods:d.rods.map(r=>Array.isArray(r)?cv(r):r)});
+let D=norm(ld('fd')&&ld('fd').version>FISCH_DATA.version?ld('fd'):FISCH_DATA);
+let S=ld('me')||{lvl:1,money:0,owned:['flimsy'],url:'',last:0,alerts:[],report:null},tab='plan';
+const sc=r=>r.lure+r.luck*.6+r.ctrl*60+r.res*.3,R=id=>D.rods.find(r=>r.id==id);
+const save=()=>sv('me',S);
+function missing(r,seen=[]){let o=[];(r.req||[]).forEach(i=>{if(!S.owned.includes(i)&&!seen.includes(i)){const q=R(i);if(q){seen.push(i);o.push(...missing(q,seen),q)}}});return o}
+function route(){const best=Math.max(...S.owned.map(i=>R(i)?sc(R(i)):0));let run=best;
+ return D.rods.filter(r=>!S.owned.includes(r.id)&&r.lvl<=S.lvl&&r.cost>0||(!S.owned.includes(r.id)&&r.lvl<=S.lvl&&r.cost==0&&r.lvl>0))
+ .sort((a,b)=>a.cost-b.cost).filter(r=>sc(r)>run+10&&(run=sc(r),1))}
+function plan(){const rt=route(),nx=rt[0],lock=D.rods.filter(r=>r.lvl>S.lvl&&!S.owned.includes(r.id));
+ let h=`<div class="c"><div class="row"><div><label>Nivel</label><input id="lv" type="number" value="${S.lvl}"></div>
+ <div><label>Dinero (C$)</label><input id="mo" type="number" value="${S.money}"></div></div>
+ <p class="m">Roblox no comparte tus datos de Fisch con apps externas, por eso los ingresas tú. Se guardan en tu teléfono.</p></div>`;
+ if(S.alerts.length)h+=`<div class="c hl"><b>Cambios en tus cañas</b>${S.alerts.map(a=>`<div class="${a.t=='buff'?'g':'r'}">${a.t=='buff'?'Mejora':'Nerfeo'}: ${a.n} (${a.o} → ${a.w})</div>`).join('')}<button class="b s" onclick="S.alerts=[];save();go()">Entendido</button></div>`;
+ if(nx){const need=Math.max(0,nx.cost-S.money),ms=missing(nx);
+ h+=`<h2>Tu siguiente caña</h2><div class="c hl"><b>${nx.n}</b> <small>puntaje ${Math.round(sc(nx))}</small><br>
+ <span class="m">${nx.loc} · ${nx.cost?f(nx.cost)+' C$':'gratis'} · ${nx.ab}</span>
+ <p>${need?`Ahorra <b class="r">${f(need)} C$</b> más.`:'<b class="g">Ya puedes comprarla.</b>'}</p>
+ ${ms.length?`<p>Antes necesitas: ${ms.map(m=>m.n).join(' → ')}</p>`:''}
+ <button class="b" onclick="own('${nx.id}')">La conseguí</button></div>
+ <h2>Ruta más rápida</h2>${rt.slice(0,8).map((r,i)=>`<div class="c"><b>${i+1}. ${r.n}</b> <small>${f(r.cost)} C$ · ${r.loc}</small></div>`).join('')}`}
+ else h+=`<div class="c">No hay una caña mejor a tu alcance. Revisa las metas por nivel.</div>`;
+ if(lock.length)h+=`<h2>Metas por nivel</h2>${lock.map(r=>`<div class="c">${r.n}: nivel ${r.lvl} <small>(te faltan ${r.lvl-S.lvl})</small></div>`).join('')}`;return h}
+function rods(){const q=(window.q||'').toLowerCase();
+ return `<input placeholder="Buscar caña o lugar" value="${window.q||''}" oninput="window.q=this.value;go(1)">`+
+ [...D.rods].sort((a,b)=>a.cost-b.cost).filter(r=>(r.n+r.loc).toLowerCase().includes(q)).map(r=>`<div class="c"><b>${r.n}</b> ${S.owned.includes(r.id)?'<span class="g">✓ la tienes</span>':''}<br>
+ <small>${r.loc} · ${r.cost?f(r.cost)+' C$':'gratis'}${r.lvl?' · nivel '+r.lvl:''}</small><br>
+ <span class="m">Lure ${r.lure}% · Luck ${r.luck}% · Control ${r.ctrl} · Resil. ${r.res}%</span><br>${r.ab}<br>
+ <button class="b s" onclick="${S.owned.includes(r.id)?'dis':'own'}('${r.id}')">${S.owned.includes(r.id)?'Quitar':'La tengo'}</button></div>`).join('')}
+function spots(){return D.spots.length?D.spots.map(s=>`<div class="c"><b>${s.n}</b><br>${s.d}</div>`).join(''):
+ '<div class="c">Aún no hay spots verificados. Llegarán con la próxima actualización semanal.</div>'}
+function news(){const rp=S.report;return `<div class="c"><b>Datos v${D.version}</b> <small>${D.date}</small><br>
+ <label>Dirección del data.json semanal</label><input id="ur" value="${S.url}" placeholder="https://...">
+ <br><button class="b" onclick="S.url=$('#ur').value;save();upd()">Actualizar ahora</button><p class="m" id="st">${S.last?'Última revisión: '+new Date(S.last).toLocaleDateString('es'):'Sin revisar todavía'}</p></div>`+
+ (rp?`<div class="c hl"><b>Qué cambió</b><br>Nuevas: ${rp.add.join(', ')||'ninguna'}<br>Con cambios: ${rp.chg.join(', ')||'ninguna'}</div>`:'')+
+ D.changelog.map(c=>`<div class="c"><b>v${c.v}</b> <small>${c.date}</small>${c.notes.map(n=>`<div>• ${n}</div>`).join('')}</div>`).join('')}
+function own(i){if(!S.owned.includes(i))S.owned.push(i);save();go(1)}
+function dis(i){S.owned=S.owned.filter(x=>x!=i);save();go(1)}
+async function upd(){const st=$('#st');try{const n=norm(await(await fetch(S.url,{cache:'no-store'})).json()),old=D.rods,add=[],chg=[];
+ n.rods.forEach(r=>{const o=old.find(x=>x.id==r.id);if(!o)add.push(r.n);else if(Math.round(sc(o))!=Math.round(sc(r))){chg.push(r.n);
+ if(S.owned.includes(r.id))S.alerts.push({n:r.n,t:sc(r)>sc(o)?'buff':'nerf',o:Math.round(sc(o)),w:Math.round(sc(r))})}});
+ D=n;sv('fd',n);S.report={add,chg};S.last=Date.now();save();go()}catch(e){if(st)st.textContent='Sin conexión o dirección inválida. Sigues con los datos guardados.'}}
+function go(keep){const y=scrollY;if(keep!==1)tab=typeof keep=='string'?keep:tab;
+ $('#nav').innerHTML=[['plan','Plan'],['rods','Cañas'],['spots','Spots'],['news','Novedades']].map(t=>`<button class="${tab==t[0]?'on':''}" onclick="go('${t[0]}')">${t[1]}</button>`).join('');
+ $('#v').innerHTML={plan,rods,spots,news}[tab]();
+ const lv=$('#lv'),mo=$('#mo');if(lv)lv.onchange=()=>{S.lvl=+lv.value||1;save();go(1)};if(mo)mo.onchange=()=>{S.money=+mo.value||0;save();go(1)};scrollTo(0,y)}
+go();if(S.url&&Date.now()-S.last>6048e5)upd();
+</script></body></html>
